@@ -14,6 +14,7 @@ const { spawn, execSync } = require('child_process');
 const chalk = require('chalk');
 
 const mkdir = promisify(fs.mkdir);
+const exists = promisify(fs.exists);
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -61,7 +62,10 @@ Wait for the server to come up and then start cypress.
 
 async function setup() {
   try {
-    await mkdir(process.env.COMPOSER_BOTS_FOLDER);
+    const folderExists = await exists(process.env.COMPOSER_BOTS_FOLDER);
+    if (!folderExists) {
+      await mkdir(process.env.COMPOSER_BOTS_FOLDER);
+    }
   } catch (err) {
     process.stderr.write('There was a problem setting up.\n');
     process.stderr.write(`Error:\n${err.message}\n`);
@@ -71,7 +75,11 @@ async function setup() {
 async function run() {
   return new Promise((resolve) => {
     const startCommand = isDev ? 'start:dev' : 'start';
-    const server = spawn('yarn', [startCommand], { cwd: path.resolve(rootDir), stdio: 'inherit' });
+    const spawnOptions = { cwd: path.resolve(rootDir), stdio: 'inherit' };
+    if (process.platform === 'win32') {
+      spawnOptions.shell = true;
+    }
+    const server = spawn('yarn', [startCommand], spawnOptions);
 
     server.on('close', () => {
       resolve();
